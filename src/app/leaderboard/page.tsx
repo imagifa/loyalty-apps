@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { supabaseService } from '../../lib/supabase/service';
 
@@ -8,67 +7,55 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLeaderboard();
+    const fetchLeaders = async () => {
+      const { data } = await supabaseService()
+        .from('members')
+        .select('nama, total_spending, transaction_count')
+        .order('total_spending', { ascending: false })
+        .limit(10);
+      setLeaders(data || []);
+      setLoading(false);
+    };
+    fetchLeaders();
   }, []);
 
-  const fetchLeaderboard = async () => {
-    const supabase = supabaseService();
-    // Mengambil 10 member dengan poin tertinggi
-    const { data, error } = await supabase
-      .from('members')
-      .select('nama, points, referral_code')
-      .order('points', { ascending: false })
-      .limit(10);
-
-    if (data) setLeaders(data);
-    setLoading(false);
+  const formatRupiah = (num: number) => {
+    return new Intl.NumberFormat('id-ID', { 
+      style: 'currency', 
+      currency: 'IDR', 
+      minimumFractionDigits: 0 
+    }).format(num);
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-xl rounded-xl border-t-4 border-yellow-500">
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-extrabold text-slate-800">🏆 Top 10</h1>
-        <p className="text-gray-500 text-sm">Pahlawan Penjualan Bulan Ini</p>
+    <div className="max-w-md mx-auto pt-10 px-6 pb-32">
+      <div className="text-center mb-10">
+        <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase italic">Top Reseller</h1>
+        <p className="text-xs font-bold text-slate-400 tracking-widest uppercase mt-1">Berdasarkan Total Omset</p>
       </div>
 
-      {loading ? (
-        <p className="text-center text-gray-500 animate-pulse">Menyiapkan panggung juara...</p>
-      ) : (
-        <div className="space-y-3">
-          {leaders.map((leader, index) => (
-            <div 
-              key={index} 
-              className={`flex justify-between items-center p-4 rounded-lg border transition-all ${
-                index === 0 ? 'bg-yellow-50 border-yellow-200' : 
-                index === 1 ? 'bg-gray-50 border-gray-200' : 
-                index === 2 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <span className={`text-2xl font-black ${
-                  index === 0 ? 'text-yellow-500' : 
-                  index === 1 ? 'text-gray-400' : 
-                  index === 2 ? 'text-orange-500' : 'text-slate-300'
-                }`}>
-                  #{index + 1}
-                </span>
-                <div>
-                  <p className="font-bold text-slate-800 uppercase">{leader.nama}</p>
-                  <p className="text-xs text-gray-400">ID: {leader.referral_code}</p>
-                </div>
+      <div className="space-y-4">
+        {loading ? (
+          <p className="text-center text-slate-400 font-bold animate-pulse uppercase text-xs">Menghitung Data...</p>
+        ) : (
+          leaders.map((m, index) => (
+            <div key={index} className={`relative flex items-center gap-4 p-5 rounded-[2rem] border transition-all ${index === 0 ? 'bg-blue-600 border-transparent shadow-xl shadow-blue-200' : 'bg-white border-slate-100 shadow-sm'}`}>
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-lg ${index === 0 ? 'bg-white text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                {index + 1}
+              </div>
+              <div className="flex-1">
+                <p className={`font-black uppercase text-sm leading-none mb-1 ${index === 0 ? 'text-white' : 'text-slate-700'}`}>{m.nama}</p>
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${index === 0 ? 'text-blue-100' : 'text-slate-400'}`}>{m.transaction_count || 0} Transaksi</p>
               </div>
               <div className="text-right">
-                <p className="text-xl font-extrabold text-blue-600">{leader.points}</p>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Poin</p>
+                <p className={`text-sm font-black ${index === 0 ? 'text-white' : 'text-green-600'}`}>
+                  {formatRupiah(m.total_spending || 0)}
+                </p>
               </div>
             </div>
-          ))}
-          
-          {leaders.length === 0 && (
-            <p className="text-center text-gray-500 text-sm py-4">Belum ada juara bulan ini. Jadilah yang pertama!</p>
-          )}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }

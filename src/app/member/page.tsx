@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from 'react';
 import { supabaseService } from '../../lib/supabase/service';
 import { QRCodeSVG } from 'qrcode.react';
@@ -7,130 +6,79 @@ import { QRCodeSVG } from 'qrcode.react';
 export default function MemberDashboard() {
   const [noHp, setNoHp] = useState('');
   const [memberData, setMemberData] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: any) => {
     e.preventDefault();
     setLoading(true);
-    setErrorMsg('');
-    
-    const supabase = supabaseService();
-    
-    const { data: member, error: memberErr } = await supabase
-      .from('members')
-      .select('*')
-      .eq('no_hp', noHp)
-      .single();
-
-    if (memberErr || !member) {
-      setErrorMsg("Nomor HP tidak ditemukan.");
-      setLoading(false);
-      return;
-    } 
-
-    setMemberData(member);
-
-    const { data: historyData } = await supabase
-      .from('point_history')
-      .select('*')
-      .eq('member_id', member.id)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (historyData) setHistory(historyData);
+    const { data: member } = await supabaseService().from('members').select('*').eq('no_hp', noHp).single();
+    if (member) { setMemberData(member); } else { alert("Nomor tidak terdaftar!"); }
     setLoading(false);
   };
 
-  // Fungsi format tanggal & waktu Indonesia
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+  const formatRupiah = (num: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
   };
 
   if (!memberData) {
     return (
-      <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow-xl rounded-lg border-t-4 border-blue-600">
-        <h1 className="text-2xl font-bold mb-2 text-center text-slate-800">Cek Poin Member</h1>
-        <p className="text-sm text-gray-500 mb-6 text-center">Masukkan nomor WhatsApp terdaftar</p>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input type="tel" placeholder="Contoh: 08123456789" value={noHp} onChange={(e) => setNoHp(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required />
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg">{loading ? 'Mencari...' : 'Masuk Ke Dashboard'}</button>
-          {errorMsg && <p className="text-red-500 text-sm text-center font-bold">{errorMsg}</p>}
-        </form>
+      <div className="max-w-md mx-auto pt-20 px-6">
+        <div className="bg-white p-8 rounded-[2rem] shadow-2xl shadow-blue-100 border border-slate-100">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200 mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          </div>
+          <h1 className="text-2xl font-black text-center text-slate-800 mb-2 italic">Member Access</h1>
+          <p className="text-slate-400 text-center text-sm mb-8 tracking-tight">Pantau performa penjualan Anda secara real-time</p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input type="tel" placeholder="Nomor WhatsApp" value={noHp} onChange={(e) => setNoHp(e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center" required />
+            <button className="w-full bg-blue-600 text-white p-4 rounded-2xl font-black shadow-lg shadow-blue-200 hover:scale-[1.02] transition-all uppercase italic">
+              {loading ? 'Sinking...' : 'Check My Performance'}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
 
-  const referralLink = `http://localhost:3000/register?ref=${memberData.id}`;
-
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-xl rounded-2xl border-t-4 border-blue-600 pb-10">
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">Kartu Member Digital</h2>
-        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">{memberData.nama}</p>
-      </div>
-
-      <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-2xl text-white shadow-inner mb-6 flex flex-col items-center">
-        <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Total Tabungan Poin</p>
-        <p className="text-6xl font-black my-1">{memberData.points}</p>
-        <p className="text-[10px] font-medium opacity-70 italic tracking-tighter">ID: {memberData.referral_code}</p>
-      </div>
-
-      <div className="flex flex-col items-center justify-center mb-8">
-        <div className="p-3 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
-          <QRCodeSVG value={memberData.id} size={140} />
+    <div className="max-w-md mx-auto pt-10 px-6 pb-32">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-xl font-black text-slate-800 italic uppercase">Dashboard</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{memberData.nama}</p>
         </div>
-        <p className="text-[10px] mt-2 font-bold text-gray-400 uppercase tracking-widest">Scan QR ini saat bertransaksi</p>
+        <div className="px-3 py-1 bg-blue-100 text-blue-600 rounded-lg font-black text-[10px] tracking-widest uppercase">
+          {memberData.referral_code}
+        </div>
       </div>
 
-      {/* SEKSI RIWAYAT POIN DENGAN TANGGAL */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Riwayat Mutasi</h3>
-          <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full font-bold text-slate-500">10 TERBARU</span>
-        </div>
-        
-        {history.length === 0 ? (
-          <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-2xl">
-            <p className="text-xs text-gray-400 font-medium italic">Belum ada transaksi poin.</p>
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 mb-8 relative overflow-hidden">
+        <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+        <p className="text-[10px] font-bold opacity-70 uppercase tracking-[0.3em] mb-2">Total Akumulasi Omset</p>
+        <p className="text-3xl font-black italic mb-6">{formatRupiah(memberData.total_spending || 0)}</p>
+        <div className="flex justify-between items-center bg-black/20 p-4 rounded-2xl backdrop-blur-sm">
+          <div>
+            <p className="text-[9px] font-bold opacity-60 uppercase tracking-widest">Transaksi</p>
+            <p className="text-lg font-black italic">{memberData.transaction_count || 0}x</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {history.map((item) => (
-              <div key={item.id} className="flex justify-between items-center p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-700 leading-tight">{item.description}</p>
-                  <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter">
-                    📅 {formatDateTime(item.created_at)}
-                  </p>
-                </div>
-                <div className="text-lg font-black text-green-600 ml-2">
-                  +{item.amount}
-                </div>
-              </div>
-            ))}
+          <div className="h-8 w-[1px] bg-white/20"></div>
+          <div className="text-right">
+            <p className="text-[9px] font-bold opacity-60 uppercase tracking-widest">Status</p>
+            <p className="text-lg font-black italic">Active</p>
           </div>
-        )}
-      </div>
-
-      <div className="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 mb-4">
-        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest text-center">Bagikan Referral Anda</p>
-        <div className="flex gap-2">
-          <input type="text" readOnly value={referralLink} className="flex-1 p-2 text-[10px] text-slate-500 bg-white border rounded-lg outline-none" />
-          <button onClick={() => { navigator.clipboard.writeText(referralLink); alert('Link disalin!'); }} className="bg-slate-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-700 transition">SALIN</button>
         </div>
       </div>
 
-      <button onClick={() => setMemberData(null)} className="w-full mt-4 text-[10px] font-bold text-gray-400 hover:text-red-500 transition tracking-widest uppercase">
-        &larr; Ganti Akun Member
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-slate-100 border border-slate-50 flex flex-col items-center mb-10">
+        <p className="text-[10px] font-black text-slate-300 mb-6 uppercase tracking-[0.3em]">Reseller QR ID</p>
+        <div className="p-4 bg-white rounded-3xl shadow-sm border border-slate-50">
+          <QRCodeSVG value={memberData.id} size={160} />
+        </div>
+        <p className="text-[9px] font-bold text-slate-400 mt-6 text-center leading-relaxed">Berikan kode ini kepada konsumen <br/>saat bertransaksi di Mutif Store</p>
+      </div>
+
+      <button onClick={() => setMemberData(null)} className="w-full text-[10px] font-black text-slate-300 hover:text-red-400 transition-colors uppercase tracking-[0.4em]">
+        Switch Account
       </button>
     </div>
   );
