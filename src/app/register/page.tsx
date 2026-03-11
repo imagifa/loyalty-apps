@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { supabaseService } from '@/lib/supabase/service';
+import { supabaseService } from '../../lib/supabase/service';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function RegisterPage() {
