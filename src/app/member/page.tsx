@@ -7,6 +7,7 @@ import { QRCodeSVG } from 'qrcode.react';
 export default function MemberDashboard() {
   const [noHp, setNoHp] = useState('');
   const [memberData, setMemberData] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -17,19 +18,38 @@ export default function MemberDashboard() {
     
     const supabase = supabaseService();
     
-    // Cari member berdasarkan No HP
-    const { data, error } = await supabase
+    // 1. Cari data member
+    const { data: member, error: memberErr } = await supabase
       .from('members')
       .select('*')
       .eq('no_hp', noHp)
       .single();
 
-    if (error || !data) {
+    if (memberErr || !member) {
       setErrorMsg("Nomor HP tidak ditemukan. Pastikan sudah terdaftar.");
-    } else {
-      setMemberData(data);
-    }
+      setLoading(false);
+      return;
+    } 
+
+    setMemberData(member);
+
+    // 2. Ambil riwayat poin (5 transaksi terakhir)
+    const { data: historyData } = await supabase
+      .from('point_history')
+      .select('*')
+      .eq('member_id', member.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (historyData) setHistory(historyData);
+    
     setLoading(false);
+  };
+
+  // Format tanggal agar enak dibaca
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+    return new Date(dateString).toLocaleDateString('id-ID', options);
   };
 
   if (!memberData) {
@@ -60,11 +80,10 @@ export default function MemberDashboard() {
     );
   }
 
-  // Tampilan Dashboard setelah berhasil masuk
   const referralLink = `http://localhost:3000/register?ref=${memberData.id}`;
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-xl rounded-xl border-t-4 border-blue-600">
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-xl rounded-xl border-t-4 border-blue-600 pb-10">
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Halo, {memberData.nama}!</h1>
         <p className="text-gray-500 text-sm">Member ID: {memberData.referral_code}</p>
@@ -78,17 +97,39 @@ export default function MemberDashboard() {
       <div className="flex flex-col items-center justify-center mb-6">
         <p className="text-sm font-semibold mb-2">Tunjukkan QR ini saat belanja:</p>
         <div className="p-4 bg-white border-2 border-dashed border-gray-300 rounded-xl">
-          <QRCodeSVG value={memberData.id} size={180} />
+          <QRCodeSVG value={memberData.id} size={150} />
         </div>
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg border">
+      {/* Bagian Riwayat Poin Baru */}
+      <div className="mb-6">
+        <p className="text-sm font-bold text-slate-700 mb-3">Riwayat Poin Terakhir</p>
+        {history.length === 0 ? (
+          <p className="text-xs text-center text-gray-400 p-4 border rounded-lg bg-gray-50">Belum ada mutasi poin.</p>
+        ) : (
+          <div className="space-y-2">
+            {history.map((item) => (
+              <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg bg-gray-50">
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">{item.description}</p>
+                  <p className="text-[10px] text-gray-400">{formatDate(item.created_at)}</p>
+                </div>
+                <div className="text-green-600 font-bold text-sm">
+                  +{item.amount}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg border mb-4">
         <p className="text-sm font-semibold mb-2">Sebar Link Referral Anda:</p>
         <input 
           type="text" 
           readOnly 
           value={referralLink} 
-          className="w-full p-2 text-xs text-gray-500 bg-white border rounded mb-2" 
+          className="w-full p-2 text-xs text-gray-500 bg-white border rounded mb-2 outline-none" 
         />
         <button 
           onClick={() => {
@@ -103,7 +144,7 @@ export default function MemberDashboard() {
 
       <button 
         onClick={() => setMemberData(null)} 
-        className="w-full mt-6 text-gray-500 text-sm hover:underline"
+        className="w-full mt-2 text-gray-500 text-sm font-medium hover:text-slate-800 transition"
       >
         Keluar
       </button>
