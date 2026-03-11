@@ -35,17 +35,21 @@ export default function AdminPage() {
     setLoading(true);
     const supabase = supabaseService();
     
+    // Cari siapa pengajak member ini dan ambil nama member yang belanja
     const { data: member } = await supabase
       .from('members')
-      .select('referred_by_id')
+      .select('nama, referred_by_id')
       .eq('id', scanResult)
       .single();
 
     if (member?.referred_by_id) {
       const bonus = Math.floor(Number(amount) / 10000);
+      const deskripsi = `Bonus referral dari belanja ${member.nama}`;
+      
       const { error } = await supabase.rpc('increment_points', { 
         row_id: member.referred_by_id, 
-        amount: bonus 
+        amount: bonus,
+        source_description: deskripsi
       });
 
       if (!error) alert(`Sukses! Pengajak dapat ${bonus} poin.`);
