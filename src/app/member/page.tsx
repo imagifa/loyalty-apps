@@ -18,7 +18,6 @@ export default function MemberDashboard() {
     
     const supabase = supabaseService();
     
-    // 1. Cari data member
     const { data: member, error: memberErr } = await supabase
       .from('members')
       .select('*')
@@ -26,55 +25,45 @@ export default function MemberDashboard() {
       .single();
 
     if (memberErr || !member) {
-      setErrorMsg("Nomor HP tidak ditemukan. Pastikan sudah terdaftar.");
+      setErrorMsg("Nomor HP tidak ditemukan.");
       setLoading(false);
       return;
     } 
 
     setMemberData(member);
 
-    // 2. Ambil riwayat poin (5 transaksi terakhir)
     const { data: historyData } = await supabase
       .from('point_history')
       .select('*')
       .eq('member_id', member.id)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
 
     if (historyData) setHistory(historyData);
-    
     setLoading(false);
   };
 
-  // Format tanggal agar enak dibaca
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
+  // Fungsi format tanggal & waktu Indonesia
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   };
 
   if (!memberData) {
     return (
-      <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow-xl rounded-lg">
+      <div className="max-w-md mx-auto mt-20 p-6 bg-white shadow-xl rounded-lg border-t-4 border-blue-600">
         <h1 className="text-2xl font-bold mb-2 text-center text-slate-800">Cek Poin Member</h1>
-        <p className="text-sm text-gray-500 mb-6 text-center">Masukkan nomor WhatsApp Anda yang terdaftar</p>
-        
+        <p className="text-sm text-gray-500 mb-6 text-center">Masukkan nomor WhatsApp terdaftar</p>
         <form onSubmit={handleLogin} className="space-y-4">
-          <input 
-            type="tel" 
-            placeholder="Contoh: 08123456789" 
-            value={noHp} 
-            onChange={(e) => setNoHp(e.target.value)} 
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" 
-            required 
-          />
-          <button 
-            type="submit" 
-            disabled={loading} 
-            className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition"
-          >
-            {loading ? 'Mencari Data...' : 'Cek Poin Saya'}
-          </button>
-          {errorMsg && <p className="text-red-500 text-sm text-center">{errorMsg}</p>}
+          <input type="tel" placeholder="Contoh: 08123456789" value={noHp} onChange={(e) => setNoHp(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500" required />
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg">{loading ? 'Mencari...' : 'Masuk Ke Dashboard'}</button>
+          {errorMsg && <p className="text-red-500 text-sm text-center font-bold">{errorMsg}</p>}
         </form>
       </div>
     );
@@ -83,38 +72,47 @@ export default function MemberDashboard() {
   const referralLink = `http://localhost:3000/register?ref=${memberData.id}`;
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-xl rounded-xl border-t-4 border-blue-600 pb-10">
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-xl rounded-2xl border-t-4 border-blue-600 pb-10">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Halo, {memberData.nama}!</h1>
-        <p className="text-gray-500 text-sm">Member ID: {memberData.referral_code}</p>
+        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">Kartu Member Digital</h2>
+        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">{memberData.nama}</p>
       </div>
 
-      <div className="bg-blue-50 p-6 rounded-xl flex flex-col items-center justify-center mb-6">
-        <p className="text-gray-600 text-sm mb-1">Total Poin Anda</p>
-        <p className="text-5xl font-extrabold text-blue-700">{memberData.points}</p>
+      <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-2xl text-white shadow-inner mb-6 flex flex-col items-center">
+        <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Total Tabungan Poin</p>
+        <p className="text-6xl font-black my-1">{memberData.points}</p>
+        <p className="text-[10px] font-medium opacity-70 italic tracking-tighter">ID: {memberData.referral_code}</p>
       </div>
 
-      <div className="flex flex-col items-center justify-center mb-6">
-        <p className="text-sm font-semibold mb-2">Tunjukkan QR ini saat belanja:</p>
-        <div className="p-4 bg-white border-2 border-dashed border-gray-300 rounded-xl">
-          <QRCodeSVG value={memberData.id} size={150} />
+      <div className="flex flex-col items-center justify-center mb-8">
+        <div className="p-3 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
+          <QRCodeSVG value={memberData.id} size={140} />
         </div>
+        <p className="text-[10px] mt-2 font-bold text-gray-400 uppercase tracking-widest">Scan QR ini saat bertransaksi</p>
       </div>
 
-      {/* Bagian Riwayat Poin Baru */}
-      <div className="mb-6">
-        <p className="text-sm font-bold text-slate-700 mb-3">Riwayat Poin Terakhir</p>
+      {/* SEKSI RIWAYAT POIN DENGAN TANGGAL */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Riwayat Mutasi</h3>
+          <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full font-bold text-slate-500">10 TERBARU</span>
+        </div>
+        
         {history.length === 0 ? (
-          <p className="text-xs text-center text-gray-400 p-4 border rounded-lg bg-gray-50">Belum ada mutasi poin.</p>
+          <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-2xl">
+            <p className="text-xs text-gray-400 font-medium italic">Belum ada transaksi poin.</p>
+          </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {history.map((item) => (
-              <div key={item.id} className="flex justify-between items-center p-3 border rounded-lg bg-gray-50">
-                <div>
-                  <p className="text-xs font-semibold text-slate-700">{item.description}</p>
-                  <p className="text-[10px] text-gray-400">{formatDate(item.created_at)}</p>
+              <div key={item.id} className="flex justify-between items-center p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-blue-200 transition">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-slate-700 leading-tight">{item.description}</p>
+                  <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter">
+                    📅 {formatDateTime(item.created_at)}
+                  </p>
                 </div>
-                <div className="text-green-600 font-bold text-sm">
+                <div className="text-lg font-black text-green-600 ml-2">
                   +{item.amount}
                 </div>
               </div>
@@ -123,30 +121,16 @@ export default function MemberDashboard() {
         )}
       </div>
 
-      <div className="bg-gray-50 p-4 rounded-lg border mb-4">
-        <p className="text-sm font-semibold mb-2">Sebar Link Referral Anda:</p>
-        <input 
-          type="text" 
-          readOnly 
-          value={referralLink} 
-          className="w-full p-2 text-xs text-gray-500 bg-white border rounded mb-2 outline-none" 
-        />
-        <button 
-          onClick={() => {
-            navigator.clipboard.writeText(referralLink);
-            alert('Link berhasil disalin!');
-          }}
-          className="w-full bg-green-500 text-white py-2 rounded text-sm font-bold hover:bg-green-600"
-        >
-          Salin Link Referral
-        </button>
+      <div className="bg-slate-50 p-4 rounded-2xl border-2 border-dashed border-slate-200 mb-4">
+        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest text-center">Bagikan Referral Anda</p>
+        <div className="flex gap-2">
+          <input type="text" readOnly value={referralLink} className="flex-1 p-2 text-[10px] text-slate-500 bg-white border rounded-lg outline-none" />
+          <button onClick={() => { navigator.clipboard.writeText(referralLink); alert('Link disalin!'); }} className="bg-slate-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-700 transition">SALIN</button>
+        </div>
       </div>
 
-      <button 
-        onClick={() => setMemberData(null)} 
-        className="w-full mt-2 text-gray-500 text-sm font-medium hover:text-slate-800 transition"
-      >
-        Keluar
+      <button onClick={() => setMemberData(null)} className="w-full mt-4 text-[10px] font-bold text-gray-400 hover:text-red-500 transition tracking-widest uppercase">
+        &larr; Ganti Akun Member
       </button>
     </div>
   );

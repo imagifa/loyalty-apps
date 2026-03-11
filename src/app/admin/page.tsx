@@ -3,17 +3,16 @@
 import { useState, useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { supabaseService } from '../../lib/supabase/service';
+import * as XLSX from 'xlsx';
 
 export default function AdminPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [pin, setPin] = useState('');
   const [activeTab, setActiveTab] = useState<'scan' | 'manage'>('scan');
   
-  // State untuk Scanner
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   
-  // State untuk CRUD
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editMember, setEditMember] = useState<any>(null);
@@ -31,13 +30,29 @@ export default function AdminPage() {
   const fetchMembers = async () => {
     setLoading(true);
     const supabase = supabaseService();
-    const { data } = await supabase.from('members').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('members').select('*').order('points', { ascending: false });
     if (data) setMembers(data);
     setLoading(false);
   };
 
+  // FUNGSI EXPORT EXCEL
+  const exportToExcel = () => {
+    const fileDate = new Date().toISOString().split('T')[0];
+    const worksheet = XLSX.utils.json_to_sheet(members.map(m => ({
+      Nama: m.nama,
+      No_HP: m.no_hp,
+      Total_Poin: m.points,
+      ID_Member: m.referral_code,
+      Tanggal_Daftar: new Date(m.created_at).toLocaleDateString('id-ID')
+    })));
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Poin");
+    XLSX.writeFile(workbook, `Laporan_Poin_Mutif_${fileDate}.xlsx`);
+  };
+
   const handleDelete = async (id: string) => {
-    if (confirm("Hapus member ini? Riwayat poin juga akan hilang.")) {
+    if (confirm("Hapus member ini?")) {
       const supabase = supabaseService();
       await supabase.from('members').delete().eq('id', id);
       fetchMembers();
@@ -97,8 +112,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white shadow-xl rounded-xl border-t-4 border-blue-600">
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white shadow-xl rounded-xl border-t-4 border-blue-600 mb-20">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-black text-slate-800 tracking-tight">ADMIN PANEL</h1>
         <div className="flex bg-gray-100 p-1 rounded-lg">
           <button onClick={() => setActiveTab('scan')} className={`px-4 py-2 rounded-md text-sm font-bold transition ${activeTab === 'scan' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>Scanner</button>
@@ -113,7 +128,7 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-4">
               <div className="p-4 bg-green-50 rounded border border-green-200">
-                <p className="text-xs text-green-600 font-bold uppercase">Member Terdeteksi</p>
+                <p className="text-xs text-green-600 font-bold uppercase tracking-widest">Member Terdeteksi</p>
                 <p className="font-mono font-bold text-slate-700 break-all">{scanResult}</p>
               </div>
               <input type="number" placeholder="Total Belanja (Rp)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
@@ -125,44 +140,62 @@ export default function AdminPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
-                <th className="p-3 border-b">Nama</th>
-                <th className="p-3 border-b">No HP</th>
-                <th className="p-3 border-b">Poin</th>
-                <th className="p-3 border-b text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              {members.map((m) => (
-                <tr key={m.id} className="hover:bg-gray-50">
-                  <td className="p-3 border-b font-medium">{m.nama}</td>
-                  <td className="p-3 border-b text-gray-500">{m.no_hp}</td>
-                  <td className="p-3 border-b font-bold text-blue-600">{m.points}</td>
-                  <td className="p-3 border-b text-center space-x-2">
-                    <button onClick={() => setEditMember(m)} className="text-blue-500 hover:underline">Edit</button>
-                    <button onClick={() => handleDelete(m.id)} className="text-red-500 hover:underline">Hapus</button>
-                  </td>
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button 
+              onClick={exportToExcel}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-green-700 shadow-sm transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export ke Excel
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+                  <th className="p-3 border-b">Nama</th>
+                  <th className="p-3 border-b">No HP</th>
+                  <th className="p-3 border-b">Poin</th>
+                  <th className="p-3 border-b text-center">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="text-sm">
+                {members.map((m) => (
+                  <tr key={m.id} className="hover:bg-gray-50">
+                    <td className="p-3 border-b font-medium">{m.nama}</td>
+                    <td className="p-3 border-b text-gray-500">{m.no_hp}</td>
+                    <td className="p-3 border-b font-bold text-blue-600">{m.points}</td>
+                    <td className="p-3 border-b text-center space-x-4">
+                      <button onClick={() => setEditMember(m)} className="text-blue-500 font-bold hover:underline">Edit</button>
+                      <button onClick={() => handleDelete(m.id)} className="text-red-500 font-bold hover:underline">Hapus</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Modal Edit */}
       {editMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4">Edit Data Member</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h2 className="text-xl font-bold mb-4 text-slate-800">Edit Data Member</h2>
             <form onSubmit={handleUpdate} className="space-y-4">
-              <input type="text" value={editMember.nama} onChange={(e) => setEditMember({...editMember, nama: e.target.value})} className="w-full p-2 border rounded" placeholder="Nama" />
-              <input type="tel" value={editMember.no_hp} onChange={(e) => setEditMember({...editMember, no_hp: e.target.value})} className="w-full p-2 border rounded" placeholder="No HP" />
-              <div className="flex gap-2">
-                <button type="submit" className="flex-1 bg-blue-600 text-white p-2 rounded font-bold">Simpan</button>
-                <button type="button" onClick={() => setEditMember(null)} className="flex-1 bg-gray-200 p-2 rounded font-bold text-gray-600">Batal</button>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400">NAMA LENGKAP</label>
+                <input type="text" value={editMember.nama} onChange={(e) => setEditMember({...editMember, nama: e.target.value})} className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nama" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400">NOMOR WHATSAPP</label>
+                <input type="tel" value={editMember.no_hp} onChange={(e) => setEditMember({...editMember, no_hp: e.target.value})} className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="No HP" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 transition">Simpan</button>
+                <button type="button" onClick={() => setEditMember(null)} className="flex-1 bg-gray-100 p-3 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition">Batal</button>
               </div>
             </form>
           </div>
